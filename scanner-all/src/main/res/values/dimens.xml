@@ -1,0 +1,30 @@
+<resources>
+
+    <!-- Default screen margins, per the Android Design guidelines. -->
+    <dimen name="activity_horizontal_margin">16dp</dimen>
+    <dimen name="activity_vertical_margin">16dp</dimen>
+    <dimen name="money_textsize">16sp</dimen>
+
+    
+    <!-- 铁匠版本UI规范 -->
+    
+    <!-- 导航栏高度 -->
+    <dimen name="tj_toolbar_height">48dp</dimen>
+    <!-- 导航栏标题大小 -->
+    <dimen name="tj_toolbar_title">17sp</dimen>
+    <!-- 导航栏menu文字大小 -->
+    <dimen name="tj_toolbar_menu">13sp</dimen>
+    
+    <dimen name="tj_tabbar_title">12sp</dimen>
+    <dimen name="tj_tabbar_height">49dp</dimen>
+    
+    
+    <!-- 铁匠 按钮高度 -->
+    <dimen name="tj_button_large">42dp</dimen>
+    
+    
+    <!-- 扫码预览框大小 -->
+    <dimen name="tj_qr_preview_top">101dp</dimen>
+    <dimen name="tj_qr_preview_height">200dp</dimen>
+    <dimen name="tj_qr_preview_width">200dp</dimen>
+</resources>

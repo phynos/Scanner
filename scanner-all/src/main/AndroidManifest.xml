@@ -1,0 +1,22 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.phynos.scanner.all" >
+
+    <!-- 相机 -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-feature android:name="android.hardware.camera" /> <!-- 使用照相机权限 -->
+    <uses-feature android:name="android.hardware.camera.autofocus" /> <!-- 自动聚焦权限 -->
+    <!-- 震动权限 -->
+    <uses-permission android:name="android.permission.VIBRATE"/>
+
+    <application android:allowBackup="true" android:label="@string/app_name"
+        android:supportsRtl="true">
+        <!-- 二维码扫描 -->
+        <activity
+            android:name="com.dtr.zxing.activity.CaptureActivity"
+            android:label="@string/activity_qrscan_title"
+            android:theme="@style/MyFullScreenTheme"
+            android:screenOrientation="portrait" >
+        </activity>
+    </application>
+
+</manifest>
