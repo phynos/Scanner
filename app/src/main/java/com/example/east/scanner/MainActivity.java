@@ -33,6 +33,6 @@ public class MainActivity extends AppCompatActivity {
         TextView tv = (TextView)findViewById(R.id.textview_msg);
         tv.setText(sn);
 
-        Toast.makeText(this,sn,Toast.LENGTH_LONG);
+        Toast.makeText(this,sn,Toast.LENGTH_LONG).show();
     }
 }
