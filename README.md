@@ -24,3 +24,7 @@
 - zxing核心部分是由官网代码自己编译
 - android摄像头部分的代码由zxing代码和开源中国的代码合并合成
 - zbar代码来自网络，so库是直接在工程中编译的
+
+## 注意事项
+- 如果有代码混淆，请在app模块里面添加以下
+	-keep class net.sourceforge.zbar.** { *; }
