@@ -491,14 +491,14 @@ SurfaceHolder.Callback, OnClickListener {
 		if(mode == INPUT_MODE_QR){
 			mMode = INPUT_MODE_QR;
 			mTitle.setText("扫描二维码");
-			mTextMode.setText("无法识别？手动输入电桩序列号");
+			mTextMode.setText("无法识别？手动输入序列号");
 			mLayoutModeInput.setVisibility(View.GONE);
 			mPreview1.setVisibility(View.VISIBLE);
 			mPreview2.setVisibility(View.GONE);
 			//启动识别
 		} else if(mode == INPUT_MODE_TEXT){
 			mMode = INPUT_MODE_TEXT;
-			mTitle.setText("输入电桩序列号");
+			mTitle.setText("输入序列号");
 			mTextMode.setText("切换到扫描二维码模式");
 			mLayoutModeInput.setVisibility(View.VISIBLE);
 			mPreview1.setVisibility(View.INVISIBLE);

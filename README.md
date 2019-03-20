@@ -28,3 +28,5 @@
 ## 注意事项
 - 如果有代码混淆，请在app模块里面添加以下
 	-keep class net.sourceforge.zbar.** { *; }
+- 关于NDK17版本之后ndk的问题，参考：
+  https://www.jianshu.com/p/ed9c3fea3584
