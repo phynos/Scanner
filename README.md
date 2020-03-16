@@ -1,5 +1,7 @@
 ## Android二维码扫码模块
-本模块采用双核心（zxing,zbar）进行解码，同时zxing在二值化算法上也采用双算法
+本模块采用双核心（zxing,zbar）进行解码，同时zxing在二值化算法上也采用双算法  
+可以直接下载apk测试：https://github.com/phynos/Scanner/releases
+
 
 ## 优点
 - zbar弥补了zxing识别慢，倾斜角度的问题
