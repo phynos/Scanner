@@ -15,8 +15,6 @@
  */
 package com.dtr.zxing.activity;
 
-import java.io.IOException;
-
 import android.Manifest;
 import android.content.Context;
 import android.content.DialogInterface;
@@ -26,11 +24,6 @@ import android.graphics.Bitmap;
 import android.graphics.Rect;
 import android.os.Bundle;
 import android.os.Handler;
-import android.support.annotation.Nullable;
-import android.support.v4.app.ActivityCompat;
-import android.support.v4.content.ContextCompat;
-import android.support.v7.app.AlertDialog;
-import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
@@ -47,6 +40,12 @@ import android.widget.RelativeLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.annotation.Nullable;
+import androidx.appcompat.app.AlertDialog;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
+
 import com.dtr.zxing.camera.CameraManager;
 import com.dtr.zxing.decode.DecodeThread;
 import com.dtr.zxing.decode.MyPlanarYUVLuminanceSource;
@@ -55,6 +54,8 @@ import com.dtr.zxing.utils.InactivityTimer;
 import com.google.zxing.Result;
 import com.phynos.scanner.all.BuildConfig;
 import com.phynos.scanner.all.R;
+
+import java.io.IOException;
 
 /**
  * This activity opens the camera and does the actual scanning on a background
@@ -295,7 +296,7 @@ SurfaceHolder.Callback, OnClickListener {
 	}
 
 	@Override
-	public void onRequestPermissionsResult(int requestCode,@Nullable String[] permissions, @Nullable int[] grantResults) {
+	public void onRequestPermissionsResult(int requestCode, @Nullable String[] permissions, @Nullable int[] grantResults) {
 		if (permissions != null && grantResults != null) {
 			super.onRequestPermissionsResult(requestCode, permissions, grantResults);
 			if (requestCode == REQUEST_CODE_CAMERA) {
