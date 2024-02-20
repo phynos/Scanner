@@ -351,21 +351,7 @@ SurfaceHolder.Callback, OnClickListener {
 
 	//处理扫码信息
 	private void handleText(final String text) {
-		//分析二维码内容版本
-		String snTemp = text;
-		if(text.length() != 12 ||
-				text.contains("http://www.eastevs.com")){
-			if(text.contains("sn=")){
-				int begin = text.indexOf("sn=");
-				begin = begin + 3;
-				int end = text.indexOf("&", begin);
-				if(end == -1)
-					end = text.length();				
-				snTemp = text.substring(begin, end);
-			}
-		}
-		String sn = snTemp;
-		commit(sn);
+		commit(text);
 	}
 
 	private void showErrorMessage(String msg){

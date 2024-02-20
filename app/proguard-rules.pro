@@ -12,6 +12,7 @@
 #   public *;
 #}
 -keep class net.sourceforge.zbar.** { *; }
+-keep class com.phynos.zbar.** { *; }
 
 # Uncomment this to preserve the line number information for
 # debugging stack traces.

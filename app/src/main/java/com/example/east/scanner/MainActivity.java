@@ -9,6 +9,7 @@ import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.dtr.zxing.activity.CaptureActivity;
+import com.phynos.zbar.MyJniTest;
 
 public class MainActivity extends AppCompatActivity implements View.OnClickListener {
 
@@ -23,6 +24,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private void setup(){
         findViewById(R.id.btScan).setOnClickListener(this);
 
+        Toast.makeText(this, MyJniTest.getData(), Toast.LENGTH_SHORT).show();
         openScan();
     }
 
