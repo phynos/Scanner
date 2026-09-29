@@ -48,10 +48,8 @@ import androidx.core.content.ContextCompat;
 
 import com.dtr.zxing.camera.CameraManager;
 import com.dtr.zxing.decode.DecodeThread;
-import com.dtr.zxing.decode.MyPlanarYUVLuminanceSource;
 import com.dtr.zxing.utils.BeepManager;
 import com.dtr.zxing.utils.InactivityTimer;
-import com.google.zxing.Result;
 import com.phynos.scanner.all.BuildConfig;
 import com.phynos.scanner.all.R;
 
@@ -312,11 +310,11 @@ SurfaceHolder.Callback, OnClickListener {
 	}
 
 	/**
-	 * 处理zxing的解码结果
-	 * @param rawResult 解码结果
-	 * @param barcode 解码之后的灰阶图
+	 * 处理zxing-cpp的解码结果
+	 * @param text 解码结果文本
+	 * @param barcode 解码之后的灰阶图（zbar路径为null）
 	 */
-	public void handleDecode(final Result rawResult,final Bitmap barcode) {
+	public void handleDecode(final String text, final Bitmap barcode) {
 		inactivityTimer.onActivity();
 		beepManager.playBeepSoundAndVibrate();
 
@@ -325,28 +323,18 @@ SurfaceHolder.Callback, OnClickListener {
 			@Override
 			public void run() {
 				//处理结果文本
-				handleText(rawResult.getText());
-				if(BuildConfig.DEBUG){
+				handleText(text);
+				if(BuildConfig.DEBUG && barcode != null){
 					//显示结果缩略图
 					mImageResult.setVisibility(View.VISIBLE);
-					mImageResult.setImageBitmap(barcode);	
+					mImageResult.setImageBitmap(barcode);
 				}
 			}
 		}, 800);
 	}
 
 	public void handleDecode(final String result){
-		inactivityTimer.onActivity();
-		beepManager.playBeepSoundAndVibrate();
-
-		handler.postDelayed(new Runnable() {
-
-			@Override
-			public void run() {
-				//处理结果文本
-				handleText(result);
-			}
-		}, 800);
+		handleDecode(result, null);
 	}
 
 	//处理扫码信息
@@ -542,16 +530,6 @@ SurfaceHolder.Callback, OnClickListener {
 		intent.putExtra("sn", sn);
 		setResult(RESULT_CODE, intent);
 		finish();
-	}
-
-	public MyPlanarYUVLuminanceSource buildLuminanceSource(byte[] data, int width, int height) {
-		//根据取景框 裁剪数据
-		Rect rect = getCropRect();
-		if (rect == null) {
-			return null;
-		}
-		// Go ahead and assume it's YUV rather than die.
-		return new MyPlanarYUVLuminanceSource(data, width, height, rect.left, rect.top, rect.width(), rect.height(), false);
 	}
 
 }

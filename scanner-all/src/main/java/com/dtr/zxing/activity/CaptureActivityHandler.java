@@ -17,8 +17,6 @@
 package com.dtr.zxing.activity;
 
 
-import android.app.Activity;
-import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.os.Bundle;
@@ -28,7 +26,6 @@ import android.widget.Toast;
 
 import com.dtr.zxing.camera.CameraManager;
 import com.dtr.zxing.decode.DecodeThread;
-import com.google.zxing.Result;
 import com.phynos.scanner.all.R;
 
 
@@ -78,8 +75,8 @@ public class CaptureActivityHandler extends Handler {
 					barcode = barcode.copy(Bitmap.Config.ARGB_8888, true);
 				}
 			}
-			Toast.makeText(activity, ((Result) message.obj).getText(), Toast.LENGTH_SHORT).show();
-			activity.handleDecode((Result) message.obj, barcode);
+			Toast.makeText(activity, (String) message.obj, Toast.LENGTH_SHORT).show();
+			activity.handleDecode((String) message.obj, barcode);
 
 		} else if(message.what == R.id.decode_succeeded_zbar){
 			state = State.SUCCESS;
@@ -88,10 +85,6 @@ public class CaptureActivityHandler extends Handler {
 			// start another.
 			state = State.PREVIEW;
 			cameraManager.requestPreviewFrame(decodeThread.getHandler(), R.id.decode);
-
-		} else if (message.what == R.id.return_scan_result) {
-			activity.setResult(Activity.RESULT_OK, (Intent) message.obj);
-			activity.finish();
 
 		}
 	}

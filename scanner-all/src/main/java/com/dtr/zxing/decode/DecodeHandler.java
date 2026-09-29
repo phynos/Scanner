@@ -17,7 +17,6 @@
 package com.dtr.zxing.decode;
 
 import java.io.ByteArrayOutputStream;
-import java.util.Map;
 
 import android.graphics.Bitmap;
 import android.graphics.Rect;
@@ -30,14 +29,8 @@ import android.text.TextUtils;
 import android.util.Log;
 
 import com.dtr.zxing.activity.CaptureActivity;
-import com.google.zxing.BinaryBitmap;
-import com.google.zxing.DecodeHintType;
-import com.google.zxing.MultiFormatReader;
-import com.google.zxing.ReaderException;
-import com.google.zxing.Result;
-import com.google.zxing.common.GlobalHistogramBinarizer;
-import com.google.zxing.common.HybridBinarizer;
 import com.phynos.scanner.all.R;
+import com.phynos.scanner.zxing.ZXingCpp;
 
 import net.sourceforge.zbar.Config;
 import net.sourceforge.zbar.Image;
@@ -51,15 +44,14 @@ import net.sourceforge.zbar.SymbolSet;
 public class DecodeHandler extends Handler {
 
 	private final CaptureActivity activity;
-	private final MultiFormatReader multiFormatReader;
+	private final String formats;
 	private boolean running = true;
 
 	private ImageScanner mImageScanner = null;
 
-	public DecodeHandler(CaptureActivity activity, Map<DecodeHintType, Object> hints) {
-		multiFormatReader = new MultiFormatReader();
-		multiFormatReader.setHints(hints);
+	public DecodeHandler(CaptureActivity activity, String formats) {
 		this.activity = activity;
+		this.formats = formats;
 
 		mImageScanner = new ImageScanner();
 		mImageScanner.setConfig(0, Config.X_DENSITY, 3);
@@ -85,7 +77,7 @@ public class DecodeHandler extends Handler {
 	 * Decode the data within the viewfinder rectangle, and time how long it
 	 * took. For efficiency, reuse the same reader objects from one decode to
 	 * the next.
-	 * 
+	 *
 	 * @param data
 	 *            The YUV preview frame.
 	 * @param width
@@ -103,8 +95,8 @@ public class DecodeHandler extends Handler {
 				rotatedData[x * size.height + size.height - y - 1] = data[x + y * size.width];
 		}
 
-		//先用zxing解码		
-		boolean result = decodeByZXing(rotatedData,width,height);
+		//先用zxing-cpp解码
+		boolean result = decodeByZxingCpp(rotatedData);
 		result = result || decodeByZbar(rotatedData);
 		if(!result){
 			//如果 都解码失败，则发送消息
@@ -113,52 +105,47 @@ public class DecodeHandler extends Handler {
 				Message message = Message.obtain(handler, R.id.decode_failed);
 				message.sendToTarget();
 			}
-		}	
+		}
 	}
 
-	private boolean decodeByZXing(byte[] rotatedData, int width, int height){
-		boolean result = false;
-		Result rawResult = null;
-		MyPlanarYUVLuminanceSource source = activity.buildLuminanceSource(rotatedData, height, width);
-		if (source != null) {
-			BinaryBitmap bitmap = new BinaryBitmap(new HybridBinarizer(source));
-			//先用 高级算法进行二值化
-			try {
-				rawResult = multiFormatReader.decodeWithState(bitmap);
-			} catch (ReaderException re) {
-				// continue
-			} finally {
-				multiFormatReader.reset();
-			}
+	private boolean decodeByZxingCpp(byte[] rotatedData) {
+		Rect rect = activity.getCropRect();
+		if (rect == null) {
+			Log.d("zxing-cpp-decode", "剪切面积为空！");
+			return false;
+		}
 
-			//如果失败，再用 直方图算法进行二值化（可以增加低对比度的识别率）
-			if(rawResult == null){
-				BinaryBitmap bitmap2 = new BinaryBitmap(new GlobalHistogramBinarizer(source));
-				try {
-					rawResult = multiFormatReader.decodeWithState(bitmap2);
-				} catch (ReaderException re) {
-					// continue
-				} finally {
-					multiFormatReader.reset();
-				}
-			}
+		Size size = activity.getCameraManager().getPreviewSize();
+		// 旋转后宽高互换
+		int width = size.height;
+		int height = size.width;
+
+		//先用 LocalAverage 二值化（约等于旧 HybridBinarizer）
+		String text = ZXingCpp.decode(rotatedData, width, height,
+				rect.left, rect.top, rect.width(), rect.height(),
+				formats, ZXingCpp.BINARIZER_LOCAL_AVERAGE);
+
+		//如果失败，再用 GlobalHistogram 二值化（可以增加低对比度的识别率）
+		if (text == null) {
+			text = ZXingCpp.decode(rotatedData, width, height,
+					rect.left, rect.top, rect.width(), rect.height(),
+					formats, ZXingCpp.BINARIZER_GLOBAL_HISTOGRAM);
+		}
+
+		if (text == null) {
+			return false;
 		}
 
 		Handler handler = activity.getHandler();
-		if (rawResult != null) {			
-			// Don't log the barcode contents for security.
-			if (handler != null) {
-				result = true;
-				Message message = Message.obtain(handler, R.id.decode_succeeded,rawResult);
-				Bundle bundle = new Bundle();
-				bundleThumbnail(source, bundle);
-				message.setData(bundle);
-				message.sendToTarget();
-			}
-		} else {			
-			result = false;			
+		if (handler == null) {
+			return false;
 		}
-		return result;
+		Message message = Message.obtain(handler, R.id.decode_succeeded, text);
+		Bundle bundle = new Bundle();
+		bundleThumbnail(rotatedData, width, height, rect, bundle);
+		message.setData(bundle);
+		message.sendToTarget();
+		return true;
 	}
 
 	private boolean decodeByZbar(byte[] rotatedData){
@@ -201,16 +188,16 @@ public class DecodeHandler extends Handler {
 
 	/**
 	 * 根据YUV图像生成缩略图，将缩略图数据传给界面
-	 * @param source
-	 * @param bundle
 	 */
-	private static void bundleThumbnail(MyPlanarYUVLuminanceSource source, Bundle bundle) {
-		int[] pixels = source.renderThumbnail();
-		int width = source.getThumbnailWidth();
-		int height = source.getThumbnailHeight();
-		Bitmap bitmap = Bitmap.createBitmap(pixels, 0, width, width, height, Bitmap.Config.ARGB_8888);
+	private static void bundleThumbnail(byte[] rotatedData, int width, int height, Rect rect, Bundle bundle) {
+		PreviewFrame frame = new PreviewFrame(rotatedData, width, height,
+				rect.left, rect.top, rect.width(), rect.height());
+		int[] pixels = frame.renderThumbnail();
+		int thumbWidth = frame.getThumbnailWidth();
+		int thumbHeight = frame.getThumbnailHeight();
+		Bitmap bitmap = Bitmap.createBitmap(pixels, 0, thumbWidth, thumbWidth, thumbHeight, Bitmap.Config.ARGB_8888);
 		ByteArrayOutputStream out = new ByteArrayOutputStream();
-		bitmap.compress(Bitmap.CompressFormat.JPEG, 50, out);		
+		bitmap.compress(Bitmap.CompressFormat.JPEG, 50, out);
 		bundle.putByteArray(DecodeThread.BARCODE_BITMAP, out.toByteArray());
 	}
 

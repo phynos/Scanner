@@ -16,36 +16,23 @@
 
 package com.dtr.zxing.decode;
 
-import com.google.zxing.BarcodeFormat;
+import com.phynos.scanner.zxing.ZXingCpp;
 
-import java.util.Collection;
-import java.util.EnumSet;
-import java.util.Set;
-
+/**
+ * 解码格式配置，返回 zxing-cpp 的格式名字符串（见 {@link ZXingCpp}）。
+ */
 public class DecodeFormatManager {
 
-	// 1D解码
-	private static final Set<BarcodeFormat> PRODUCT_FORMATS;
-	private static final Set<BarcodeFormat> INDUSTRIAL_FORMATS;
-	private static final Set<BarcodeFormat> ONE_D_FORMATS;
+	private DecodeFormatManager() {
+	}
 
 	// 二维码解码
-	private static final Set<BarcodeFormat> QR_CODE_FORMATS;
-
-	static {
-		PRODUCT_FORMATS = EnumSet.of(BarcodeFormat.UPC_A, BarcodeFormat.UPC_E, BarcodeFormat.EAN_13, BarcodeFormat.EAN_8, BarcodeFormat.RSS_14, BarcodeFormat.RSS_EXPANDED);
-		INDUSTRIAL_FORMATS = EnumSet.of(BarcodeFormat.CODE_39, BarcodeFormat.CODE_93, BarcodeFormat.CODE_128, BarcodeFormat.ITF, BarcodeFormat.CODABAR);
-		ONE_D_FORMATS = EnumSet.copyOf(PRODUCT_FORMATS);
-		ONE_D_FORMATS.addAll(INDUSTRIAL_FORMATS);
-
-		QR_CODE_FORMATS = EnumSet.of(BarcodeFormat.QR_CODE,BarcodeFormat.DATA_MATRIX,BarcodeFormat.AZTEC,BarcodeFormat.MAXICODE);
+	public static String getQrCodeFormats() {
+		return ZXingCpp.FORMATS_QR;
 	}
 
-	public static Collection<BarcodeFormat> getQrCodeFormats() {
-		return QR_CODE_FORMATS;
-	}
-
-	public static Collection<BarcodeFormat> getBarCodeFormats() {
-		return ONE_D_FORMATS;
+	// 1D条形码解码
+	public static String getBarCodeFormats() {
+		return ZXingCpp.FORMATS_BARCODE;
 	}
 }

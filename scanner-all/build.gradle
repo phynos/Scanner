@@ -4,10 +4,10 @@ android {
 
     defaultConfig {
         minSdkVersion 15
-        compileSdk 30
+        compileSdk 33
         targetSdkVersion 30
 
-        testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
 
     }
 
@@ -22,10 +22,10 @@ android {
 }
 
 dependencies {
-    api fileTree(include: ['*.jar'], dir: 'libs')
     implementation 'androidx.appcompat:appcompat:1.4.1'
     testImplementation 'junit:junit:4.13.2'
     androidTestImplementation 'androidx.test.ext:junit:1.1.3'
+    androidTestImplementation 'androidx.test:runner:1.5.2'
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.4.0'
     api project(':scanner-zxing')
     api project(':scanner-zbar')

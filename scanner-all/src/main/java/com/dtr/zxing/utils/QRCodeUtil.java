@@ -2,19 +2,14 @@ package com.dtr.zxing.utils;
 
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.util.HashMap;
-import java.util.Map;
-import com.google.zxing.BarcodeFormat;
-import com.google.zxing.EncodeHintType;
-import com.google.zxing.WriterException;
-import com.google.zxing.common.BitMatrix;
-import com.google.zxing.qrcode.QRCodeWriter;
-import com.google.zxing.qrcode.decoder.ErrorCorrectionLevel;
+
+import com.phynos.scanner.zxing.ZXingCpp;
+
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 
 /**
- * 二维码生成工具类
+ * 二维码生成工具类（基于 zxing-cpp）
  * @param content   内容
  * @param widthPix  图片宽度
  * @param heightPix 图片高度
@@ -24,32 +19,30 @@ import android.graphics.Canvas;
  */
 public class QRCodeUtil {
 
+	/** 容错级别 H（约30%），与旧 ErrorCorrectionLevel.H 一致 */
+	private static final String EC_LEVEL = "H";
+
 	public static boolean createQRImage(String content, int widthPix, int heightPix, Bitmap logoBm, String filePath) {
 		try {
 			if (content == null || "".equals(content)) {
 				return false;
 			}
 
-			//配置参数
-			Map<EncodeHintType, Object> hints = new HashMap<EncodeHintType, Object>();
-			hints.put(EncodeHintType.CHARACTER_SET, "utf-8");
-			//容错级别
-			hints.put(EncodeHintType.ERROR_CORRECTION, ErrorCorrectionLevel.H);
-			//设置空白边距的宽度
-			hints.put(EncodeHintType.MARGIN, 2); //default is 4
+			// 模块矩阵（含标准静区），1 表示黑模块
+			int[] matrix = ZXingCpp.encodeQr(content, EC_LEVEL, true);
+			if (matrix == null || matrix.length < 2) {
+				return false;
+			}
+			int cols = matrix[0];
+			int rows = matrix[1];
 
-			// 图像数据转换，使用了矩阵转换
-			BitMatrix bitMatrix = new QRCodeWriter().encode(content, BarcodeFormat.QR_CODE, widthPix, heightPix, hints);
+			// 最近邻缩放到目标宽高，逐点生成二维码图片
 			int[] pixels = new int[widthPix * heightPix];
-			// 下面这里按照二维码的算法，逐个生成二维码的图片，
-			// 两个for循环是图片横列扫描的结果
 			for (int y = 0; y < heightPix; y++) {
+				int my = y * rows / heightPix;
 				for (int x = 0; x < widthPix; x++) {
-					if (bitMatrix.get(x, y)) {
-						pixels[y * widthPix + x] = 0xff000000;
-					} else {
-						pixels[y * widthPix + x] = 0xffffffff;
-					}
+					int mx = x * cols / widthPix;
+					pixels[y * widthPix + x] = matrix[2 + my * cols + mx] == 1 ? 0xff000000 : 0xffffffff;
 				}
 			}
 
@@ -63,7 +56,7 @@ public class QRCodeUtil {
 
 			//必须使用compress方法将bitmap保存到文件中再进行读取。直接返回的bitmap是没有任何压缩的，内存消耗巨大！
 			return bitmap != null && bitmap.compress(Bitmap.CompressFormat.JPEG, 100, new FileOutputStream(filePath));
-		} catch (WriterException | IOException e) {
+		} catch (IOException e) {
 			e.printStackTrace();
 		}
 
@@ -116,4 +109,3 @@ public class QRCodeUtil {
 		return bitmap;
 	}
 }
-
