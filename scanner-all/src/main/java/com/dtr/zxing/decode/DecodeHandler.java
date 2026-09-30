@@ -49,6 +49,9 @@ public class DecodeHandler extends Handler {
 
 	private ImageScanner mImageScanner = null;
 
+	/** 旋转缓冲复用（仅解码线程访问），避免每帧分配 */
+	private byte[] mRotateBuffer;
+
 	public DecodeHandler(CaptureActivity activity, String formats) {
 		this.activity = activity;
 		this.formats = formats;
@@ -87,48 +90,70 @@ public class DecodeHandler extends Handler {
 	 */
 	private void decode(byte[] data, int width, int height) {
 		Size size = activity.getCameraManager().getPreviewSize();
+		Rect rect = activity.getCropRect();
+		if (size == null || rect == null) {
+			Log.d("decode", "预览尺寸或剪切面积为空！");
+			sendDecodeFailed();
+			return;
+		}
 
-		// 这里需要将获取的data翻转一下，因为相机默认拿的的横屏的数据
-		byte[] rotatedData = new byte[data.length];
-		for (int y = 0; y < size.height; y++) {
-			for (int x = 0; x < size.width; x++)
-				rotatedData[x * size.height + size.height - y - 1] = data[x + y * size.width];
+		// 只旋转取景框区域（相机默认横屏数据，需翻转为竖屏）。
+		// 旋转后像素(rx, ry) 对应原图(x, y) = (ry, size.height - 1 - rx)，
+		// 裁剪矩形位于旋转后坐标系中。
+		int rotatedWidth = size.height;
+		int rotatedHeight = size.width;
+		int cropLeft = Math.max(0, Math.min(rect.left, rotatedWidth - 1));
+		int cropTop = Math.max(0, Math.min(rect.top, rotatedHeight - 1));
+		int cropWidth = Math.min(rect.width(), rotatedWidth - cropLeft);
+		int cropHeight = Math.min(rect.height(), rotatedHeight - cropTop);
+		if (cropWidth <= 0 || cropHeight <= 0) {
+			sendDecodeFailed();
+			return;
+		}
+
+		// 旋转缓冲复用，避免每帧分配整幅缓冲（本方法仅在解码线程调用）
+		byte[] rotatedData = mRotateBuffer;
+		if (rotatedData == null || rotatedData.length < cropWidth * cropHeight) {
+			rotatedData = new byte[cropWidth * cropHeight];
+			mRotateBuffer = rotatedData;
+		}
+
+		for (int ry = 0; ry < cropHeight; ry++) {
+			int x = cropTop + ry;
+			for (int rx = 0; rx < cropWidth; rx++) {
+				int y = size.height - 1 - (cropLeft + rx);
+				rotatedData[ry * cropWidth + rx] = data[x + y * size.width];
+			}
 		}
 
 		//先用zxing-cpp解码
-		boolean result = decodeByZxingCpp(rotatedData);
-		result = result || decodeByZbar(rotatedData);
-		if(!result){
+		boolean result = decodeByZxingCpp(rotatedData, cropWidth, cropHeight);
+		result = result || decodeByZbar(rotatedData, cropWidth, cropHeight);
+		if (!result) {
 			//如果 都解码失败，则发送消息
-			Handler handler = activity.getHandler();
-			if (handler != null) {
-				Message message = Message.obtain(handler, R.id.decode_failed);
-				message.sendToTarget();
-			}
+			sendDecodeFailed();
 		}
 	}
 
-	private boolean decodeByZxingCpp(byte[] rotatedData) {
-		Rect rect = activity.getCropRect();
-		if (rect == null) {
-			Log.d("zxing-cpp-decode", "剪切面积为空！");
-			return false;
+	private void sendDecodeFailed() {
+		Handler handler = activity.getHandler();
+		if (handler != null) {
+			Message message = Message.obtain(handler, R.id.decode_failed);
+			message.sendToTarget();
 		}
+	}
 
-		Size size = activity.getCameraManager().getPreviewSize();
-		// 旋转后宽高互换
-		int width = size.height;
-		int height = size.width;
-
+	private boolean decodeByZxingCpp(byte[] cropData, int cropWidth, int cropHeight) {
+		// 缓冲已裁剪，无需再传裁剪矩形
 		//先用 LocalAverage 二值化（约等于旧 HybridBinarizer）
-		String text = ZXingCpp.decode(rotatedData, width, height,
-				rect.left, rect.top, rect.width(), rect.height(),
+		String text = ZXingCpp.decode(cropData, cropWidth, cropHeight,
+				0, 0, 0, 0,
 				formats, ZXingCpp.BINARIZER_LOCAL_AVERAGE);
 
 		//如果失败，再用 GlobalHistogram 二值化（可以增加低对比度的识别率）
 		if (text == null) {
-			text = ZXingCpp.decode(rotatedData, width, height,
-					rect.left, rect.top, rect.width(), rect.height(),
+			text = ZXingCpp.decode(cropData, cropWidth, cropHeight,
+					0, 0, 0, 0,
 					formats, ZXingCpp.BINARIZER_GLOBAL_HISTOGRAM);
 		}
 
@@ -142,28 +167,16 @@ public class DecodeHandler extends Handler {
 		}
 		Message message = Message.obtain(handler, R.id.decode_succeeded, text);
 		Bundle bundle = new Bundle();
-		bundleThumbnail(rotatedData, width, height, rect, bundle);
+		bundleThumbnail(cropData, cropWidth, cropHeight, bundle);
 		message.setData(bundle);
 		message.sendToTarget();
 		return true;
 	}
 
-	private boolean decodeByZbar(byte[] rotatedData){
-		Size size = activity.getCameraManager().getPreviewSize();
-		// 宽高也要调整
-		int tmp = size.width;
-		size.width = size.height;
-		size.height = tmp;
-
-		Image barcode = new Image(size.width, size.height,"Y800");
-		barcode.setData(rotatedData);
-
-		Rect rect = activity.getCropRect();
-		if(rect == null) {
-			Log.d("zbar-decode", "剪切面积为空！");
-			return false;
-		}
-		barcode.setCrop(rect.left, rect.top, rect.width(),rect.height());
+	private boolean decodeByZbar(byte[] cropData, int cropWidth, int cropHeight) {
+		// 缓冲已裁剪为取景框区域，整幅解码即可
+		Image barcode = new Image(cropWidth, cropHeight, "Y800");
+		barcode.setData(cropData);
 
 		int result = mImageScanner.scanImage(barcode);
 		String resultStr = null;
@@ -189,9 +202,8 @@ public class DecodeHandler extends Handler {
 	/**
 	 * 根据YUV图像生成缩略图，将缩略图数据传给界面
 	 */
-	private static void bundleThumbnail(byte[] rotatedData, int width, int height, Rect rect, Bundle bundle) {
-		PreviewFrame frame = new PreviewFrame(rotatedData, width, height,
-				rect.left, rect.top, rect.width(), rect.height());
+	private static void bundleThumbnail(byte[] cropData, int cropWidth, int cropHeight, Bundle bundle) {
+		PreviewFrame frame = new PreviewFrame(cropData, cropWidth, cropHeight, 0, 0, cropWidth, cropHeight);
 		int[] pixels = frame.renderThumbnail();
 		int thumbWidth = frame.getThumbnailWidth();
 		int thumbHeight = frame.getThumbnailHeight();

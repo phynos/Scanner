@@ -33,7 +33,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         super.onActivityResult(requestCode, resultCode, data);
         if(resultCode == 1221) {
             String sn = data.getStringExtra("sn");
-            TextView tv = (TextView)findViewById(R.id.textview_msg);
+            TextView tv = findViewById(R.id.textview_msg);
             tv.setText(sn);
             Toast.makeText(this,sn,Toast.LENGTH_LONG).show();
         }
