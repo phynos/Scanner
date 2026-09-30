@@ -102,8 +102,11 @@ SurfaceHolder.Callback, OnClickListener {
 	private EditText mEditSn;
 	private ImageView mImageResult;
 
-	/** 扫码成功后的缩略图，通过 Intent 传回给调用方 */
+	/** 扫码成功后的调试数据，通过 Intent 传回给调用方 */
 	private Bitmap mResultBitmap;
+	private Bitmap mDebugCropBitmap;
+	private Bitmap mDebugGammaBitmap;
+	private String mDebugStrategy;
 
 	/**
 	 * 闪光灯状态 标志位
@@ -317,10 +320,15 @@ SurfaceHolder.Callback, OnClickListener {
 	 * @param text 解码结果文本
 	 * @param barcode 解码之后的灰阶图（zbar路径为null）
 	 */
-	public void handleDecode(final String text, final Bitmap barcode) {
+	public void handleDecode(final String text, final Bitmap barcode,
+							 final Bitmap debugCrop, final Bitmap debugGamma,
+							 final String debugStrategy) {
 		inactivityTimer.onActivity();
 		beepManager.playBeepSoundAndVibrate();
 		mResultBitmap = barcode;
+		mDebugCropBitmap = debugCrop;
+		mDebugGammaBitmap = debugGamma;
+		mDebugStrategy = debugStrategy;
 
 		handler.postDelayed(new Runnable() {
 
@@ -336,7 +344,7 @@ SurfaceHolder.Callback, OnClickListener {
 	}
 
 	public void handleDecode(final String result){
-		handleDecode(result, null);
+		handleDecode(result, null, null, null, null);
 	}
 
 	//处理扫码信息
@@ -530,14 +538,23 @@ SurfaceHolder.Callback, OnClickListener {
 			intent.putExtra("isSame", false);
 		}
 		intent.putExtra("sn", sn);
-		// 将扫码缩略图传回调用方
-		if (mResultBitmap != null) {
-			java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
-			mResultBitmap.compress(Bitmap.CompressFormat.JPEG, 80, out);
-			intent.putExtra("thumbnail", out.toByteArray());
+		// 传回调试数据
+		putBitmapExtra(intent, "thumbnail", mResultBitmap);
+		putBitmapExtra(intent, "debug_crop_image", mDebugCropBitmap);
+		putBitmapExtra(intent, "debug_gamma_image", mDebugGammaBitmap);
+		if (mDebugStrategy != null) {
+			intent.putExtra("debug_strategy", mDebugStrategy);
 		}
 		setResult(RESULT_CODE, intent);
 		finish();
+	}
+
+	private static void putBitmapExtra(Intent intent, String key, Bitmap bitmap) {
+		if (bitmap != null) {
+			java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+			bitmap.compress(Bitmap.CompressFormat.JPEG, 80, out);
+			intent.putExtra(key, out.toByteArray());
+		}
 	}
 
 }

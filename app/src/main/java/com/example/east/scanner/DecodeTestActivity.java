@@ -64,22 +64,14 @@ public class DecodeTestActivity extends AppCompatActivity {
             else if (checkedId == R.id.btnDecZbar) decoderMode = DecoderMode.ZBAR;
         });
 
-        // 相机扫码：拿到缩略图后，作为图片来源走统一解码流程
+        // 相机扫码：直接展示结果和调试信息，不重跑解码
         scanLauncher = registerForActivityResult(
                 new ActivityResultContracts.StartActivityForResult(), result -> {
                     if (result.getResultCode() == CaptureActivity.RESULT_CODE && result.getData() != null) {
-                        String sn = result.getData().getStringExtra("sn");
+                        Intent data = result.getData();
+                        String sn = data.getStringExtra("sn");
                         if (sn != null && !sn.isEmpty()) {
-                            byte[] thumbBytes = result.getData().getByteArrayExtra("thumbnail");
-                            if (thumbBytes != null) {
-                                Bitmap thumbnail = BitmapFactory.decodeByteArray(thumbBytes, 0, thumbBytes.length);
-                                if (thumbnail != null) {
-                                    doDecode(thumbnail);
-                                    return;
-                                }
-                            }
-                            // 缩略图不可用时，至少显示文本结果
-                            showCameraResult(sn);
+                            showCameraResult(sn, data);
                         }
                     }
                 });
@@ -103,13 +95,47 @@ public class DecodeTestActivity extends AppCompatActivity {
         binding.btnCopy.setOnClickListener(v -> copyResult());
     }
 
-    /** 兜底：缩略图不可用时直接显示文本 */
-    private void showCameraResult(String text) {
+    /** 显示相机扫码结果（直接使用 Intent 中的调试数据，不重跑解码） */
+    private void showCameraResult(String text, Intent data) {
         currentResult = text;
         clearDebugImages();
-        binding.ivSource.setImageBitmap(null);
-        binding.tvResult.setText("✓ 扫码成功\n\n" + text);
+
+        // 原始图片（缩略图）
+        byte[] thumbBytes = data.getByteArrayExtra("thumbnail");
+        if (thumbBytes != null) {
+            Bitmap thumb = BitmapFactory.decodeByteArray(thumbBytes, 0, thumbBytes.length);
+            binding.ivSource.setImageBitmap(thumb);
+        }
+
+        // 策略和解码器
+        String strategy = data.getStringExtra("debug_strategy");
+        StringBuilder info = new StringBuilder();
+        info.append("✓ 扫码成功");
+        info.append("\n解码器: zxing-cpp");
+        if (strategy != null) {
+            info.append("\n策略: ").append(strategy);
+        }
+        info.append("\n\n").append(text);
+        binding.tvResult.setText(info);
         binding.btnCopy.setVisibility(View.VISIBLE);
+
+        // 裁剪原图
+        byte[] cropBytes = data.getByteArrayExtra("debug_crop_image");
+        if (cropBytes != null) {
+            Bitmap crop = BitmapFactory.decodeByteArray(cropBytes, 0, cropBytes.length);
+            binding.ivCrop.setImageBitmap(crop);
+            binding.ivCrop.setVisibility(View.VISIBLE);
+            binding.labelCrop.setVisibility(View.VISIBLE);
+        }
+
+        // 预处理图
+        byte[] gammaBytes = data.getByteArrayExtra("debug_gamma_image");
+        if (gammaBytes != null) {
+            Bitmap gamma = BitmapFactory.decodeByteArray(gammaBytes, 0, gammaBytes.length);
+            binding.ivGamma.setImageBitmap(gamma);
+            binding.ivGamma.setVisibility(View.VISIBLE);
+            binding.labelGamma.setVisibility(View.VISIBLE);
+        }
     }
 
     /** 弹出内置测试图片列表 */

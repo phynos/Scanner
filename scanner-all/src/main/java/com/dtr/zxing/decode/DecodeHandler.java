@@ -162,23 +162,27 @@ public class DecodeHandler extends Handler {
 		Bundle bundle = new Bundle();
 		bundleThumbnail(cropData, cropWidth, cropHeight, bundle);
 
-		// 获取调试图片（裁剪原图 + 伽马校正图）
+		// 获取解码策略和调试图片
 		try {
+			String strategy = ZXingCpp.getLastStrategy();
+			if (strategy != null) {
+				bundle.putString("debug_strategy", strategy);
+			}
 			ZXingCpp.DebugImages debugImages = ZXingCpp.getDebugImages();
 			if (debugImages != null) {
 				if (debugImages.cropImage != null) {
 					ByteArrayOutputStream cropOut = new ByteArrayOutputStream();
 					debugImages.cropImage.compress(Bitmap.CompressFormat.JPEG, 80, cropOut);
-					bundleByteArray(bundle, "debug_crop_image", cropOut.toByteArray());
+					bundle.putByteArray("debug_crop_image", cropOut.toByteArray());
 				}
 				if (debugImages.gammaImage != null) {
 					ByteArrayOutputStream gammaOut = new ByteArrayOutputStream();
 					debugImages.gammaImage.compress(Bitmap.CompressFormat.JPEG, 80, gammaOut);
-					bundleByteArray(bundle, "debug_gamma_image", gammaOut.toByteArray());
+					bundle.putByteArray("debug_gamma_image", gammaOut.toByteArray());
 				}
 			}
 		} catch (Exception e) {
-			Log.w("DecodeHandler", "获取调试图片失败", e);
+			Log.w("DecodeHandler", "获取调试信息失败", e);
 		}
 
 		message.setData(bundle);

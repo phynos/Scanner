@@ -67,16 +67,27 @@ public class CaptureActivityHandler extends Handler {
 			state = State.SUCCESS;
 			Bundle bundle = message.getData();
 			Bitmap barcode = null;
+			Bitmap debugCrop = null;
+			Bitmap debugGamma = null;
+			String debugStrategy = null;
 			if (bundle != null) {
 				byte[] compressedBitmap = bundle.getByteArray(DecodeThread.BARCODE_BITMAP);
 				if (compressedBitmap != null) {
 					barcode = BitmapFactory.decodeByteArray(compressedBitmap, 0, compressedBitmap.length, null);
-					// Mutable copy:
 					barcode = barcode.copy(Bitmap.Config.ARGB_8888, true);
+				}
+				debugStrategy = bundle.getString("debug_strategy");
+				byte[] cropBytes = bundle.getByteArray("debug_crop_image");
+				if (cropBytes != null) {
+					debugCrop = BitmapFactory.decodeByteArray(cropBytes, 0, cropBytes.length, null);
+				}
+				byte[] gammaBytes = bundle.getByteArray("debug_gamma_image");
+				if (gammaBytes != null) {
+					debugGamma = BitmapFactory.decodeByteArray(gammaBytes, 0, gammaBytes.length, null);
 				}
 			}
 			Toast.makeText(activity, (String) message.obj, Toast.LENGTH_SHORT).show();
-			activity.handleDecode((String) message.obj, barcode);
+			activity.handleDecode((String) message.obj, barcode, debugCrop, debugGamma, debugStrategy);
 
 		} else if(message.what == R.id.decode_succeeded_zbar){
 			state = State.SUCCESS;
