@@ -145,17 +145,10 @@ public class DecodeHandler extends Handler {
 
 	private boolean decodeByZxingCpp(byte[] cropData, int cropWidth, int cropHeight) {
 		// 缓冲已裁剪，无需再传裁剪矩形
-		//先用 LocalAverage 二值化（约等于旧 HybridBinarizer）
+		// JNI 内部已实现多策略解码（多种二值化 + 伽马校正 + 形态学闭合），一次调用即可
 		String text = ZXingCpp.decode(cropData, cropWidth, cropHeight,
 				0, 0, 0, 0,
 				formats, ZXingCpp.BINARIZER_LOCAL_AVERAGE);
-
-		//如果失败，再用 GlobalHistogram 二值化（可以增加低对比度的识别率）
-		if (text == null) {
-			text = ZXingCpp.decode(cropData, cropWidth, cropHeight,
-					0, 0, 0, 0,
-					formats, ZXingCpp.BINARIZER_GLOBAL_HISTOGRAM);
-		}
 
 		if (text == null) {
 			return false;
@@ -168,9 +161,33 @@ public class DecodeHandler extends Handler {
 		Message message = Message.obtain(handler, R.id.decode_succeeded, text);
 		Bundle bundle = new Bundle();
 		bundleThumbnail(cropData, cropWidth, cropHeight, bundle);
+
+		// 获取调试图片（裁剪原图 + 伽马校正图）
+		try {
+			ZXingCpp.DebugImages debugImages = ZXingCpp.getDebugImages();
+			if (debugImages != null) {
+				if (debugImages.cropImage != null) {
+					ByteArrayOutputStream cropOut = new ByteArrayOutputStream();
+					debugImages.cropImage.compress(Bitmap.CompressFormat.JPEG, 80, cropOut);
+					bundleByteArray(bundle, "debug_crop_image", cropOut.toByteArray());
+				}
+				if (debugImages.gammaImage != null) {
+					ByteArrayOutputStream gammaOut = new ByteArrayOutputStream();
+					debugImages.gammaImage.compress(Bitmap.CompressFormat.JPEG, 80, gammaOut);
+					bundleByteArray(bundle, "debug_gamma_image", gammaOut.toByteArray());
+				}
+			}
+		} catch (Exception e) {
+			Log.w("DecodeHandler", "获取调试图片失败", e);
+		}
+
 		message.setData(bundle);
 		message.sendToTarget();
 		return true;
+	}
+
+	private static void bundleByteArray(Bundle bundle, String key, byte[] data) {
+		bundle.putByteArray(key, data);
 	}
 
 	private boolean decodeByZbar(byte[] cropData, int cropWidth, int cropHeight) {

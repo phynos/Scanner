@@ -52,6 +52,8 @@ public class MainActivity extends AppCompatActivity {
         binding.btnScan.setOnClickListener(v -> openCapture(CaptureActivity.INPUT_MODE_QR));
         binding.btnManual.setOnClickListener(v -> openCapture(CaptureActivity.INPUT_MODE_TEXT));
         binding.btnCopy.setOnClickListener(v -> copyResult());
+        binding.btnDecodeTest.setOnClickListener(v ->
+                startActivity(new Intent(this, DecodeTestActivity.class)));
     }
 
     /** 调起扫码界面，inputMode 取 {@link CaptureActivity#INPUT_MODE_QR} 或 {@link CaptureActivity#INPUT_MODE_TEXT} */
