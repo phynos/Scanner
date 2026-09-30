@@ -1,3 +1,12 @@
 <resources>
     <string name="app_name">Scanner</string>
+
+    <!-- 主页 -->
+    <string name="result_label">扫描结果</string>
+    <string name="result_empty">尚未扫码，点击下方按钮开始</string>
+    <string name="result_same_hint">与上次结果相同</string>
+    <string name="action_scan">扫描二维码</string>
+    <string name="action_manual_input">手动输入序列号</string>
+    <string name="action_copy">复制</string>
+    <string name="copied">已复制到剪贴板</string>
 </resources>

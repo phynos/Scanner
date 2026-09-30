@@ -1,0 +1,6 @@
+<resources>
+
+    <!-- Material 3 日夜主题：色板由 M3 提供（明暗各一套），不在这里覆盖颜色 -->
+    <style name="Theme.Scanner" parent="Theme.Material3.DayNight.NoActionBar" />
+
+</resources>

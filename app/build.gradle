@@ -19,11 +19,16 @@ android {
         }
     }
     namespace 'com.example.east.scanner'
+    buildFeatures {
+        viewBinding true
+    }
 }
 
 dependencies {
     implementation fileTree(include: ['*.jar'], dir: 'libs')
     implementation 'androidx.appcompat:appcompat:1.6.1'
+    // Material 3 主题/组件（明暗模式由 DayNight 主题自动切换）
+    implementation 'com.google.android.material:material:1.6.1'
     testImplementation 'junit:junit:4.13.2'
     androidTestImplementation 'androidx.test.ext:junit:1.1.5'
     androidTestImplementation 'androidx.test:runner:1.5.2'
