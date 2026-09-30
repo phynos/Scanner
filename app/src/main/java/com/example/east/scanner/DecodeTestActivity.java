@@ -146,12 +146,18 @@ public class DecodeTestActivity extends AppCompatActivity {
             String result = ZXingCpp.decodeBitmap(bitmap, null);
             long elapsed = System.currentTimeMillis() - start;
 
-            // 获取调试图
+            // 获取策略信息和调试图
+            String strategy = ZXingCpp.getLastStrategy();
             ZXingCpp.DebugImages debug = ZXingCpp.getDebugImages();
 
             runOnUiThread(() -> {
                 if (result != null) {
-                    binding.tvResult.setText("✓ 解码成功 (" + elapsed + "ms)\n\n" + result);
+                    String info = "✓ 解码成功 (" + elapsed + "ms)";
+                    if (strategy != null) {
+                        info += "\n策略: " + strategy;
+                    }
+                    info += "\n\n" + result;
+                    binding.tvResult.setText(info);
                 } else {
                     binding.tvResult.setText("✗ 解码失败 (" + elapsed + "ms)");
                 }

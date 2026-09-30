@@ -108,6 +108,18 @@ public final class ZXingCpp {
 
     private static native Object[] getDebugImagesNative();
 
+    private static native String getLastStrategyNative();
+
+    /**
+     * 获取最近一次解码命中的策略名称，例如 "直方图均衡化 + LocalAverage"。
+     * 仅在 decode/decodeBitmap 调用后立即调用有效。
+     *
+     * @return 策略名称，解码失败时返回 null
+     */
+    public static String getLastStrategy() {
+        return getLastStrategyNative();
+    }
+
     /**
      * 调试图片数据，包含裁剪后的原始图和伽马校正后的预处理图。
      */

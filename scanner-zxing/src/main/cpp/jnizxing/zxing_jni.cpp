@@ -22,6 +22,7 @@ static std::vector<uint8_t> g_debugCropImage;
 static std::vector<uint8_t> g_debugGammaImage;
 static int g_debugWidth = 0;
 static int g_debugHeight = 0;
+static std::string g_lastStrategy;  // 最近一次解码命中的策略名称
 
 namespace {
 
@@ -231,9 +232,20 @@ std::string tryDecode(const uint8_t* data, int width, int height,
     return {};
 }
 
-/** 对单张图像尝试所有二值化策略，成功即返回 */
+/** 二值化枚举转名称 */
+static const char* binarizerName(Binarizer b) {
+    switch (b) {
+    case Binarizer::LocalAverage:    return "LocalAverage";
+    case Binarizer::GlobalHistogram: return "GlobalHistogram";
+    case Binarizer::FixedThreshold:  return "FixedThreshold";
+    default: return "Unknown";
+    }
+}
+
+/** 对单张图像尝试所有二值化策略，成功即设置 g_lastStrategy 并返回 */
 std::string tryAllBinarizers(const uint8_t* data, int w, int h,
-                             const std::string& formats, int preferredBin)
+                             const std::string& formats, int preferredBin,
+                             const char* preprocessName)
 {
     const Binarizer bins[] = {
         preferredBin == 1 ? Binarizer::GlobalHistogram : Binarizer::LocalAverage,
@@ -242,7 +254,10 @@ std::string tryAllBinarizers(const uint8_t* data, int w, int h,
     };
     for (auto b : bins) {
         std::string r = tryDecode(data, w, h, formats, b);
-        if (!r.empty()) return r;
+        if (!r.empty()) {
+            g_lastStrategy = std::string(preprocessName) + " + " + binarizerName(b);
+            return r;
+        }
     }
     return {};
 }
@@ -303,7 +318,7 @@ Java_com_phynos_scanner_zxing_ZXingCpp_decodeNative(JNIEnv* env, jclass,
         g_debugHeight = imgHeight;
 
         // === 策略 1：原始图像 × 三种二值化 ===
-        std::string text = tryAllBinarizers(imgData, imgWidth, imgHeight, formats, binarizer);
+        std::string text = tryAllBinarizers(imgData, imgWidth, imgHeight, formats, binarizer, "原始");
         if (!text.empty()) {
             result = env->NewByteArray(static_cast<jsize>(text.size()));
             if (result)
@@ -315,9 +330,9 @@ Java_com_phynos_scanner_zxing_ZXingCpp_decodeNative(JNIEnv* env, jclass,
 
         // === 策略 2：全局直方图均衡化（拉伸对比度）× 三种二值化 ===
         auto heData = histogramEqualize(imgData, imgSize);
-        text = tryAllBinarizers(heData.data(), imgWidth, imgHeight, formats, binarizer);
+        text = tryAllBinarizers(heData.data(), imgWidth, imgHeight, formats, binarizer, "直方图均衡化");
         if (!text.empty()) {
-            g_debugGammaImage = std::move(heData);  // 保存供调试显示
+            g_debugGammaImage = std::move(heData);
             result = env->NewByteArray(static_cast<jsize>(text.size()));
             if (result)
                 env->SetByteArrayRegion(result, 0, static_cast<jsize>(text.size()),
@@ -328,9 +343,8 @@ Java_com_phynos_scanner_zxing_ZXingCpp_decodeNative(JNIEnv* env, jclass,
 
         // === 策略 3：CLAHE 局部自适应均衡化（不均匀光照）× 三种二值化 ===
         auto claheData = applyCLAHE(imgData, imgWidth, imgHeight);
-        text = tryAllBinarizers(claheData.data(), imgWidth, imgHeight, formats, binarizer);
+        text = tryAllBinarizers(claheData.data(), imgWidth, imgHeight, formats, binarizer, "CLAHE");
         if (!text.empty()) {
-            // CLAHE 作为调试图（对间断/不均匀光照最有代表性）
             g_debugGammaImage = std::move(claheData);
             result = env->NewByteArray(static_cast<jsize>(text.size()));
             if (result)
@@ -343,9 +357,9 @@ Java_com_phynos_scanner_zxing_ZXingCpp_decodeNative(JNIEnv* env, jclass,
         // === 策略 4：伽马校正(γ=0.3 强提亮)× 三种二值化 ===
         GammaLut gamma(0.3);
         auto gammaData = applyGamma(imgData, imgSize, gamma);
-        g_debugGammaImage = gammaData;  // 保存供调试显示
+        g_debugGammaImage = gammaData;
 
-        text = tryAllBinarizers(gammaData.data(), imgWidth, imgHeight, formats, binarizer);
+        text = tryAllBinarizers(gammaData.data(), imgWidth, imgHeight, formats, binarizer, "伽马0.3");
         if (!text.empty()) {
             result = env->NewByteArray(static_cast<jsize>(text.size()));
             if (result)
@@ -357,7 +371,7 @@ Java_com_phynos_scanner_zxing_ZXingCpp_decodeNative(JNIEnv* env, jclass,
 
         // === 策略 5：伽马校正 + CLAHE 组合（最暗+最不均匀）× 三种二值化 ===
         auto gammaClahe = applyCLAHE(gammaData.data(), imgWidth, imgHeight);
-        text = tryAllBinarizers(gammaClahe.data(), imgWidth, imgHeight, formats, binarizer);
+        text = tryAllBinarizers(gammaClahe.data(), imgWidth, imgHeight, formats, binarizer, "伽马0.3+CLAHE");
         if (!text.empty()) {
             g_debugGammaImage = std::move(gammaClahe);
             result = env->NewByteArray(static_cast<jsize>(text.size()));
@@ -465,6 +479,20 @@ Java_com_phynos_scanner_zxing_ZXingCpp_getDebugImagesNative(JNIEnv* env, jclass)
     g_debugWidth = 0;
     g_debugHeight = 0;
 
+    return result;
+}
+
+/**
+ * 获取最近一次解码命中的策略名称，例如 "直方图均衡化 + LocalAverage"。
+ * 返回 null 表示上次解码失败或无数据。
+ */
+JNIEXPORT jstring JNICALL
+Java_com_phynos_scanner_zxing_ZXingCpp_getLastStrategyNative(JNIEnv* env, jclass)
+{
+    if (g_lastStrategy.empty())
+        return nullptr;
+    jstring result = env->NewStringUTF(g_lastStrategy.c_str());
+    g_lastStrategy.clear();
     return result;
 }
 
