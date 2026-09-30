@@ -64,19 +64,22 @@ public class DecodeTestActivity extends AppCompatActivity {
             else if (checkedId == R.id.btnDecZbar) decoderMode = DecoderMode.ZBAR;
         });
 
-        // 相机扫码
+        // 相机扫码：拿到缩略图后，作为图片来源走统一解码流程
         scanLauncher = registerForActivityResult(
                 new ActivityResultContracts.StartActivityForResult(), result -> {
                     if (result.getResultCode() == CaptureActivity.RESULT_CODE && result.getData() != null) {
                         String sn = result.getData().getStringExtra("sn");
                         if (sn != null && !sn.isEmpty()) {
-                            // 提取缩略图
                             byte[] thumbBytes = result.getData().getByteArrayExtra("thumbnail");
-                            Bitmap thumbnail = null;
                             if (thumbBytes != null) {
-                                thumbnail = android.graphics.BitmapFactory.decodeByteArray(thumbBytes, 0, thumbBytes.length);
+                                Bitmap thumbnail = BitmapFactory.decodeByteArray(thumbBytes, 0, thumbBytes.length);
+                                if (thumbnail != null) {
+                                    doDecode(thumbnail);
+                                    return;
+                                }
                             }
-                            showCameraResult(sn, thumbnail);
+                            // 缩略图不可用时，至少显示文本结果
+                            showCameraResult(sn);
                         }
                     }
                 });
@@ -100,16 +103,12 @@ public class DecodeTestActivity extends AppCompatActivity {
         binding.btnCopy.setOnClickListener(v -> copyResult());
     }
 
-    /** 显示相机扫码结果 */
-    private void showCameraResult(String text, Bitmap thumbnail) {
+    /** 兜底：缩略图不可用时直接显示文本 */
+    private void showCameraResult(String text) {
         currentResult = text;
         clearDebugImages();
-        if (thumbnail != null) {
-            binding.ivSource.setImageBitmap(thumbnail);
-        } else {
-            binding.ivSource.setImageBitmap(null);
-        }
-        binding.tvResult.setText("✓ 扫码成功\n解码器: zxing-cpp\n\n" + text);
+        binding.ivSource.setImageBitmap(null);
+        binding.tvResult.setText("✓ 扫码成功\n\n" + text);
         binding.btnCopy.setVisibility(View.VISIBLE);
     }
 
