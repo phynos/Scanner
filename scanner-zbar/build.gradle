@@ -3,7 +3,7 @@ apply plugin: 'com.android.library'
 android {
 
     defaultConfig {
-        minSdkVersion 15
+        minSdkVersion 21
         compileSdk 33
         //noinspection ExpiredTargetSdkVersion
         targetSdkVersion 30

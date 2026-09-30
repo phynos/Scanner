@@ -33,7 +33,6 @@ import android.view.Window;
 import android.view.WindowManager;
 import android.view.animation.Animation;
 import android.view.animation.TranslateAnimation;
-import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
@@ -102,13 +101,6 @@ SurfaceHolder.Callback, OnClickListener {
 	private RelativeLayout scanCropView;
 	private EditText mEditSn;
 	private ImageView mImageResult;
-	private ImageView mImageDebugCrop;
-	private ImageView mImageDebugGamma;
-	private View mLayoutDebugImages;
-	private TextView mTextDebugResult;
-	private Button mButtonDebugConfirm;
-	/** 暂存解码结果，等用户确认后再提交 */
-	private String mPendingResult;
 
 	/**
 	 * 闪光灯状态 标志位
@@ -175,20 +167,6 @@ SurfaceHolder.Callback, OnClickListener {
 		mTitle = (TextView)findViewById(R.id.toolbar_title);
 
 		mImageResult = (ImageView)findViewById(R.id.imageview_result);
-		mImageDebugCrop = (ImageView)findViewById(R.id.imageview_debug_crop);
-		mImageDebugGamma = (ImageView)findViewById(R.id.imageview_debug_gamma);
-		mLayoutDebugImages = findViewById(R.id.layout_debug_images);
-		mTextDebugResult = (TextView)findViewById(R.id.textview_debug_result);
-		mButtonDebugConfirm = (Button)findViewById(R.id.button_debug_confirm);
-		mButtonDebugConfirm.setOnClickListener(new OnClickListener() {
-			@Override
-			public void onClick(View v) {
-				// 用户确认后，提交暂存的结果并关闭
-				if (mPendingResult != null) {
-					commit(mPendingResult);
-				}
-			}
-		});
 
 		scanPreview = (SurfaceView) findViewById(R.id.capture_preview);
 		
@@ -335,11 +313,8 @@ SurfaceHolder.Callback, OnClickListener {
 	 * 处理zxing-cpp的解码结果
 	 * @param text 解码结果文本
 	 * @param barcode 解码之后的灰阶图（zbar路径为null）
-	 * @param debugCrop 裁剪后的原始调试图
-	 * @param debugGamma 伽马校正后的预处理调试图
 	 */
-	public void handleDecode(final String text, final Bitmap barcode,
-							 final Bitmap debugCrop, final Bitmap debugGamma) {
+	public void handleDecode(final String text, final Bitmap barcode) {
 		inactivityTimer.onActivity();
 		beepManager.playBeepSoundAndVibrate();
 
@@ -347,42 +322,17 @@ SurfaceHolder.Callback, OnClickListener {
 
 			@Override
 			public void run() {
-				boolean hasDebugImages = debugCrop != null || debugGamma != null;
-
-				if (hasDebugImages) {
-					// 有调试图片：暂停，显示结果和图片，等用户点确认按钮
-					mPendingResult = text;
-					mLayoutDebugImages.setVisibility(View.VISIBLE);
-					mTextDebugResult.setText("解码结果: " + text);
-					if (debugCrop != null) {
-						mImageDebugCrop.setImageBitmap(debugCrop);
-					}
-					if (debugGamma != null) {
-						mImageDebugGamma.setImageBitmap(debugGamma);
-					}
-					if (BuildConfig.DEBUG && barcode != null) {
-						mImageResult.setVisibility(View.VISIBLE);
-						mImageResult.setImageBitmap(barcode);
-					}
-					// 停止继续扫码，等用户确认
-					if (handler != null) {
-						handler.quitSynchronously();
-						handler = null;
-					}
-				} else {
-					// 无调试图片：直接返回结果
-					handleText(text);
+				handleText(text);
+				if(BuildConfig.DEBUG && barcode != null){
+					mImageResult.setVisibility(View.VISIBLE);
+					mImageResult.setImageBitmap(barcode);
 				}
 			}
 		}, 800);
 	}
 
-	public void handleDecode(final String text, final Bitmap barcode) {
-		handleDecode(text, barcode, null, null);
-	}
-
 	public void handleDecode(final String result){
-		handleDecode(result, null, null, null);
+		handleDecode(result, null);
 	}
 
 	//处理扫码信息

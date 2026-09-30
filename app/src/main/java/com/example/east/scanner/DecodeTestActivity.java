@@ -1,5 +1,9 @@
 package com.example.east.scanner;
 
+import android.content.ClipData;
+import android.content.ClipboardManager;
+import android.content.Context;
+import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.net.Uri;
@@ -12,7 +16,9 @@ import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 
+import com.dtr.zxing.activity.CaptureActivity;
 import com.example.east.scanner.databinding.ActivityDecodeTestBinding;
+import com.google.android.material.snackbar.Snackbar;
 import com.phynos.scanner.zxing.ZXingCpp;
 
 import net.sourceforge.zbar.Config;
@@ -26,16 +32,18 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * 图片解码测试界面：支持从相册选图或选择内置测试图片进行解码。
- * 可切换解码器：混合（zxing-cpp + zbar）/ 仅 zxing-cpp / 仅 zbar。
+ * 主界面：图片解码测试 + 相机扫码。
+ * 支持切换解码器（混合/zxing-cpp/zbar），显示预处理调试图，复制结果。
  */
 public class DecodeTestActivity extends AppCompatActivity {
 
-    private ActivityResultLauncher<String> galleryLauncher;
     private ActivityDecodeTestBinding binding;
+    private ActivityResultLauncher<String> galleryLauncher;
+    private ActivityResultLauncher<Intent> scanLauncher;
 
-    /** 当前选中的解码器模式 */
     private DecoderMode decoderMode = DecoderMode.HYBRID;
+    /** 当前解码结果文本（用于复制） */
+    private String currentResult;
 
     private enum DecoderMode {
         HYBRID, ZXING, ZBAR
@@ -47,8 +55,6 @@ public class DecodeTestActivity extends AppCompatActivity {
         binding = ActivityDecodeTestBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
 
-        binding.toolbar.setNavigationOnClickListener(v -> finish());
-
         // 解码器切换
         binding.toggleDecoder.check(R.id.btnDecHybrid);
         binding.toggleDecoder.addOnButtonCheckedListener((group, checkedId, isChecked) -> {
@@ -58,14 +64,44 @@ public class DecodeTestActivity extends AppCompatActivity {
             else if (checkedId == R.id.btnDecZbar) decoderMode = DecoderMode.ZBAR;
         });
 
+        // 相机扫码
+        scanLauncher = registerForActivityResult(
+                new ActivityResultContracts.StartActivityForResult(), result -> {
+                    if (result.getResultCode() == CaptureActivity.RESULT_CODE && result.getData() != null) {
+                        String sn = result.getData().getStringExtra("sn");
+                        if (sn != null && !sn.isEmpty()) {
+                            showCameraResult(sn);
+                        }
+                    }
+                });
+        binding.btnCamera.setOnClickListener(v -> {
+            Intent intent = new Intent(this, CaptureActivity.class);
+            intent.putExtra(CaptureActivity.KEY_INPUT_MODE, CaptureActivity.INPUT_MODE_QR);
+            scanLauncher.launch(intent);
+        });
+
         // 相册选图
         galleryLauncher = registerForActivityResult(
                 new ActivityResultContracts.GetContent(), uri -> {
                     if (uri != null) decodeFromUri(uri);
                 });
-
         binding.btnPickGallery.setOnClickListener(v -> galleryLauncher.launch("image/*"));
+
+        // 内置测试图
         binding.btnBuiltIn.setOnClickListener(v -> showBuiltInDialog());
+
+        // 复制按钮
+        binding.btnCopy.setOnClickListener(v -> copyResult());
+    }
+
+    /** 显示相机扫码结果（相机界面已做过解码，直接展示） */
+    private void showCameraResult(String text) {
+        currentResult = text;
+        clearDebugImages();
+        binding.ivSource.setImageBitmap(null);
+        binding.tvResult.setText("✓ 相机扫码成功\n解码器: zxing-cpp（相机）\n\n" + text);
+        binding.tvResult.setTextColor(getColor(com.google.android.material.R.color.design_default_color_primary));
+        binding.btnCopy.setVisibility(View.VISIBLE);
     }
 
     /** 弹出内置测试图片列表 */
@@ -130,19 +166,34 @@ public class DecodeTestActivity extends AppCompatActivity {
         }
     }
 
-    /**
-     * 执行解码并显示结果
-     */
-    private void doDecode(Bitmap bitmap) {
-        // 清理上一次的结果
+    /** 清理调试图 */
+    private void clearDebugImages() {
         binding.ivCrop.setImageBitmap(null);
         binding.ivCrop.setVisibility(View.GONE);
         binding.labelCrop.setVisibility(View.GONE);
         binding.ivGamma.setImageBitmap(null);
         binding.ivGamma.setVisibility(View.GONE);
         binding.labelGamma.setVisibility(View.GONE);
+    }
+
+    /** 复制当前结果到剪贴板 */
+    private void copyResult() {
+        if (currentResult == null || currentResult.isEmpty()) return;
+        ClipboardManager clipboard = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+        clipboard.setPrimaryClip(ClipData.newPlainText("decode_result", currentResult));
+        Snackbar.make(binding.getRoot(), "已复制到剪贴板", Snackbar.LENGTH_SHORT).show();
+    }
+
+    /**
+     * 执行解码并显示结果
+     */
+    private void doDecode(Bitmap bitmap) {
+        clearDebugImages();
         binding.ivSource.setImageBitmap(bitmap);
         binding.tvResult.setText("解码中...");
+        binding.tvResult.setTextColor(getColor(com.google.android.material.R.color.design_default_color_on_surface));
+        binding.btnCopy.setVisibility(View.GONE);
+        currentResult = null;
 
         new Thread(() -> {
             String result = null;
@@ -152,13 +203,11 @@ public class DecodeTestActivity extends AppCompatActivity {
 
             switch (decoderMode) {
                 case HYBRID: {
-                    // 先尝试 zxing-cpp（多策略）
                     result = ZXingCpp.decodeBitmap(bitmap, null);
                     strategy = ZXingCpp.getLastStrategy();
                     if (result != null) {
                         decoderName = "zxing-cpp";
                     } else {
-                        // 回退到 zbar
                         result = decodeByZbar(bitmap);
                         if (result != null) decoderName = "zbar（回退）";
                     }
@@ -188,6 +237,7 @@ public class DecodeTestActivity extends AppCompatActivity {
 
             runOnUiThread(() -> {
                 if (fResult != null) {
+                    currentResult = fResult;
                     StringBuilder info = new StringBuilder();
                     info.append("✓ 解码成功 (").append(fElapsed).append("ms)");
                     info.append("\n解码器: ").append(fDecoder);
@@ -196,10 +246,12 @@ public class DecodeTestActivity extends AppCompatActivity {
                     }
                     info.append("\n\n").append(fResult);
                     binding.tvResult.setText(info);
+                    binding.btnCopy.setVisibility(View.VISIBLE);
                 } else {
                     String modeName = decoderMode == DecoderMode.HYBRID ? "混合"
                             : decoderMode == DecoderMode.ZXING ? "zxing-cpp" : "zbar";
                     binding.tvResult.setText("✗ 解码失败 (" + fElapsed + "ms)\n解码器: " + modeName);
+                    binding.btnCopy.setVisibility(View.GONE);
                 }
 
                 // 显示调试图
@@ -219,16 +271,13 @@ public class DecodeTestActivity extends AppCompatActivity {
         }).start();
     }
 
-    /**
-     * 使用 zbar 解码 Bitmap
-     */
+    /** 使用 zbar 解码 Bitmap */
     private String decodeByZbar(Bitmap bitmap) {
         int w = bitmap.getWidth();
         int h = bitmap.getHeight();
         int[] pixels = new int[w * h];
         bitmap.getPixels(pixels, 0, w, 0, 0, w, h);
 
-        // 转灰度 Y800 格式
         byte[] yData = new byte[w * h];
         for (int i = 0; i < pixels.length; i++) {
             int px = pixels[i];
@@ -250,9 +299,7 @@ public class DecodeTestActivity extends AppCompatActivity {
             SymbolSet syms = scanner.getResults();
             for (Symbol sym : syms) {
                 String data = sym.getData();
-                if (data != null && !data.isEmpty()) {
-                    return data;
-                }
+                if (data != null && !data.isEmpty()) return data;
             }
         }
         return null;
