@@ -102,6 +102,9 @@ SurfaceHolder.Callback, OnClickListener {
 	private EditText mEditSn;
 	private ImageView mImageResult;
 
+	/** 扫码成功后的缩略图，通过 Intent 传回给调用方 */
+	private Bitmap mResultBitmap;
+
 	/**
 	 * 闪光灯状态 标志位
 	 */
@@ -317,6 +320,7 @@ SurfaceHolder.Callback, OnClickListener {
 	public void handleDecode(final String text, final Bitmap barcode) {
 		inactivityTimer.onActivity();
 		beepManager.playBeepSoundAndVibrate();
+		mResultBitmap = barcode;
 
 		handler.postDelayed(new Runnable() {
 
@@ -526,6 +530,12 @@ SurfaceHolder.Callback, OnClickListener {
 			intent.putExtra("isSame", false);
 		}
 		intent.putExtra("sn", sn);
+		// 将扫码缩略图传回调用方
+		if (mResultBitmap != null) {
+			java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+			mResultBitmap.compress(Bitmap.CompressFormat.JPEG, 80, out);
+			intent.putExtra("thumbnail", out.toByteArray());
+		}
 		setResult(RESULT_CODE, intent);
 		finish();
 	}

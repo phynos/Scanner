@@ -70,7 +70,13 @@ public class DecodeTestActivity extends AppCompatActivity {
                     if (result.getResultCode() == CaptureActivity.RESULT_CODE && result.getData() != null) {
                         String sn = result.getData().getStringExtra("sn");
                         if (sn != null && !sn.isEmpty()) {
-                            showCameraResult(sn);
+                            // 提取缩略图
+                            byte[] thumbBytes = result.getData().getByteArrayExtra("thumbnail");
+                            Bitmap thumbnail = null;
+                            if (thumbBytes != null) {
+                                thumbnail = android.graphics.BitmapFactory.decodeByteArray(thumbBytes, 0, thumbBytes.length);
+                            }
+                            showCameraResult(sn, thumbnail);
                         }
                     }
                 });
@@ -94,13 +100,16 @@ public class DecodeTestActivity extends AppCompatActivity {
         binding.btnCopy.setOnClickListener(v -> copyResult());
     }
 
-    /** 显示相机扫码结果（相机界面已做过解码，直接展示） */
-    private void showCameraResult(String text) {
+    /** 显示相机扫码结果 */
+    private void showCameraResult(String text, Bitmap thumbnail) {
         currentResult = text;
         clearDebugImages();
-        binding.ivSource.setImageBitmap(null);
-        binding.tvResult.setText("✓ 相机扫码成功\n解码器: zxing-cpp（相机）\n\n" + text);
-        binding.tvResult.setTextColor(getColor(com.google.android.material.R.color.design_default_color_primary));
+        if (thumbnail != null) {
+            binding.ivSource.setImageBitmap(thumbnail);
+        } else {
+            binding.ivSource.setImageBitmap(null);
+        }
+        binding.tvResult.setText("✓ 扫码成功\n解码器: zxing-cpp\n\n" + text);
         binding.btnCopy.setVisibility(View.VISIBLE);
     }
 
@@ -191,7 +200,6 @@ public class DecodeTestActivity extends AppCompatActivity {
         clearDebugImages();
         binding.ivSource.setImageBitmap(bitmap);
         binding.tvResult.setText("解码中...");
-        binding.tvResult.setTextColor(getColor(com.google.android.material.R.color.design_default_color_on_surface));
         binding.btnCopy.setVisibility(View.GONE);
         currentResult = null;
 

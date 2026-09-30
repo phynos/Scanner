@@ -125,7 +125,7 @@
                         android:layout_height="wrap_content"
                         android:text="尚未解码"
                         android:textAppearance="?attr/textAppearanceBodyLarge"
-                        android:textColor="?attr/colorOnSurfaceVariant"
+                        android:textColor="?attr/colorOnSurface"
                         android:textIsSelectable="true" />
 
                     <com.google.android.material.button.MaterialButton
